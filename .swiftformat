@@ -1,0 +1,5 @@
+--maxwidth 110
+--wraparguments before-first
+--wrapparameters before-first
+--indent 4
+--swiftversion 5.0

@@ -12,7 +12,7 @@ struct CadenceApp: App {
     init() {
         MatmulTest.run()
     }
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
