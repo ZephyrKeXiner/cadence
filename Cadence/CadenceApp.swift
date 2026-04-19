@@ -11,6 +11,8 @@ import SwiftUI
 struct CadenceApp: App {
     init() {
         MatmulTest.run()
+        print("")
+        RMSNormTest().run()
     }
 
     var body: some Scene {
