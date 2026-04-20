@@ -10,11 +10,11 @@ import SwiftUI
 @main
 struct CadenceApp: App {
     init() {
-        MatmulTest.run()
-        print("")
+//        MatmulTest.run()
+//        print("")
         RMSNormTest().run()
-        print("")
-        RoPETest().run()
+//        print("")
+//        RoPETest().run()
     }
 
     var body: some Scene {

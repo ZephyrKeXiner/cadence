@@ -28,22 +28,26 @@ final class RMSNormTest {
         // 把 gamma 做成 constant（模拟"这是加载好的权重"）
         let gammaConst = graph.floatConstant(gammaData, shape: [dim])
 
-        let output = RMSNorm.apply(graph: graph, x: xPh, gamma: gammaConst, eps: eps)
+        let result = RMSNorm.apply(graph: graph, x: xPh, gamma: gammaConst, eps: eps)
 
         // ─── 执行 ───
         let xTensorData = TensorUtils.data(from: xData, shape: [seqLen, dim])
-        let results = graph.run(
+        let runResults = graph.run(
             with: Device.shared.commandQueue,
             feeds: [xPh: xTensorData],
-            targetTensors: [output],
+            targetTensors: [result.output, result.meanSquared, result.invRms],
             targetOperations: nil
         )
 
-        guard let outTensorData = results[output] else {
+        guard let outTensorData = runResults[result.output] else {
             print("❌ no output"); return
         }
+        let meanSquared = TensorUtils.readFloats(from: runResults[result.meanSquared]!, count: seqLen * dim)
+        let invRms = TensorUtils.readFloats(from: runResults[result.invRms]!, count: seqLen * dim)
         let gpuResult = TensorUtils.readFloats(from: outTensorData, count: seqLen * dim)
 
+        print(Array(meanSquared[0 ..< dim]))
+        print(Array(invRms[0 ..< dim]))
         // ─── CPU 参考实现 ───
         let cpuResult = cpuRMSNorm(
             x: xData,

@@ -14,7 +14,11 @@ enum RMSNorm {
         x: MPSGraphTensor,
         gamma: MPSGraphTensor,
         eps: Float = 1e-6
-    ) -> MPSGraphTensor {
+    ) -> (
+        output: MPSGraphTensor,
+        meanSquared: MPSGraphTensor,
+        invRms: MPSGraphTensor
+    ) {
         let xSquared = graph.square(with: x, name: "x_squared")
 
         let lastAxis = NSNumber(value: x.shape!.count - 1)
@@ -31,6 +35,6 @@ enum RMSNorm {
 
         let normalized = graph.multiplication(x, invRms, name: "normalized")
 
-        return graph.multiplication(normalized, gamma, name: "scaled")
+        return (graph.multiplication(normalized, gamma, name: "scaled"), meanSquared, invRms)
     }
 }
