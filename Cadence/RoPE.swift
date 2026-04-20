@@ -9,7 +9,7 @@ import Foundation
 import MetalPerformanceShadersGraph
 
 enum RoPE {
-    static func precomputerConsin(
+    static func precomputeCosSin(
         seqLen: Int,
         headDim: Int,
         base: Float = 10000
@@ -38,5 +38,30 @@ enum RoPE {
             }
         }
         return (cosTable, sinTable)
+    }
+
+    static func apply(
+        graph: MPSGraph,
+        x: MPSGraphTensor,
+        cos: MPSGraphTensor,
+        sin: MPSGraphTensor,
+        headDim: Int
+    ) -> MPSGraphTensor {
+        let half = headDim / 2
+        let lastAxis = x.shape!.count - 1
+
+        let cos3d = graph.expandDims(cos, axis: 1, name: "cos_expanded")
+        let sin3d = graph.expandDims(sin, axis: 1, name: "sin_expanded")
+
+        let xLeft = graph.sliceTensor(x, dimension: lastAxis, start: 0, length: half, name: "x_left")
+        let xRight = graph.sliceTensor(x, dimension: lastAxis, start: half, length: half, name: "x_right")
+
+        let negRight = graph.negative(with: xRight, name: "neg_right")
+        let rotated = graph.concatTensors([negRight, xLeft], dimension: lastAxis, name: "rotate_half")
+
+        let term1 = graph.multiplication(x, cos3d, name: "term1")
+        let term2 = graph.multiplication(rotated, sin3d, name: "term2")
+
+        return graph.addition(term1, term2, name: "term_sum")
     }
 }

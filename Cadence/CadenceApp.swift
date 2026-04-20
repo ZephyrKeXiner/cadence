@@ -13,6 +13,8 @@ struct CadenceApp: App {
         MatmulTest.run()
         print("")
         RMSNormTest().run()
+        print("")
+        RoPETest().run()
     }
 
     var body: some Scene {
