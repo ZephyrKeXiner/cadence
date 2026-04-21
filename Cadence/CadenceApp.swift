@@ -12,7 +12,8 @@ struct CadenceApp: App {
     init() {
 //        MatmulTest.run()
 //        print("")
-        RMSNormTest().run()
+//        RMSNormTest().run()
+        RoPEPropertyTest().run()
 //        print("")
 //        RoPETest().run()
     }
