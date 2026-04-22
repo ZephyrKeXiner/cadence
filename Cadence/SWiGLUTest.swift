@@ -58,6 +58,78 @@ enum SWiGLUTest {
 
         let gpuResult = TensorUtils.readFloats(from: result[output]!, count: seqLen * d_model)
 
+        let cpuResult = cpuSWiGLU(
+            x: xData, wGate: wGate, wUp: wUp, wDown: wDown,
+            seqLen: seqLen, dModel: d_model, dFF: d_ff
+        )
+
         print("GPU output: ", Array(gpuResult[0 ..< seqLen * d_model]))
+        print("CPU output: ", Array(cpuResult[0 ..< seqLen * d_model]))
+
+        let maxDiff = zip(gpuResult, cpuResult).map { abs($0 - $1) }.max() ?? 0
+        print("Max diff: \(maxDiff)")
+        print(maxDiff < 1e-4 ? "✅ PASS" : "❌ FAIL")
+    }
+
+    /// CPU 参考实现
+    ///
+    /// 存储约定（全部行优先 row-major）：
+    ///   x:     [seqLen, dModel]  → x[i, k]     存在     x[i * dModel + k]
+    ///   wGate: [dFF,    dModel]  → wGate[f, k] 存在     wGate[f * dModel + k]
+    ///   wUp:   [dFF,    dModel]  → wUp[f, k]   存在     wUp[f * dModel + k]
+    ///   wDown: [dModel, dFF]     → wDown[j, f] 存在     wDown[j * dFF + f]
+    ///
+    /// 计算（对每个 token i）：
+    ///   gate[f]   = Σ_k wGate[f, k] * x[i, k]             ← x @ wGate.T
+    ///   up[f]     = Σ_k wUp[f, k]   * x[i, k]             ← x @ wUp.T
+    ///   hidden[f] = silu(gate[f]) * up[f]                  ← 逐元素
+    ///   out[i, j] = Σ_f wDown[j, f] * hidden[f]            ← hidden @ wDown.T
+    static func cpuSWiGLU(
+        x: [Float],
+        wGate: [Float],
+        wUp: [Float],
+        wDown: [Float],
+        seqLen: Int,
+        dModel: Int,
+        dFF: Int
+    ) -> [Float] {
+        var out = [Float](repeating: 0, count: seqLen * dModel)
+
+        for i in 0 ..< seqLen {
+            // 1. 同时算 gate 和 up（两个 matmul 合并成一个循环，省得重复遍历 x）
+            var gate = [Float](repeating: 0, count: dFF)
+            var up = [Float](repeating: 0, count: dFF)
+            for f in 0 ..< dFF {
+                var sumGate: Float = 0
+                var sumUp: Float = 0
+                for k in 0 ..< dModel {
+                    let xVal = x[i * dModel + k]
+                    sumGate += wGate[f * dModel + k] * xVal
+                    sumUp += wUp[f * dModel + k] * xVal
+                }
+                gate[f] = sumGate
+                up[f] = sumUp
+            }
+
+            // 2. hidden = silu(gate) * up，逐元素
+            //    silu(x) = x * sigmoid(x) = x / (1 + exp(-x))
+            var hidden = [Float](repeating: 0, count: dFF)
+            for f in 0 ..< dFF {
+                let g = gate[f]
+                let silu = g / (1.0 + exp(-g))
+                hidden[f] = silu * up[f]
+            }
+
+            // 3. out[i, j] = Σ_f wDown[j, f] * hidden[f]
+            for j in 0 ..< dModel {
+                var sum: Float = 0
+                for f in 0 ..< dFF {
+                    sum += wDown[j * dFF + f] * hidden[f]
+                }
+                out[i * dModel + j] = sum
+            }
+        }
+
+        return out
     }
 }
