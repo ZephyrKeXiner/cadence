@@ -2,7 +2,7 @@
 //  SWiGLU.swift
 //  Cadence
 //
-//  Created by 龚浩天 on 22/4/26.
+//  Created by Haotian Gong on 22/4/26.
 //
 
 import Foundation

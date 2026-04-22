@@ -2,7 +2,7 @@
 //  SWiGLUTest.swift
 //  Cadence
 //
-//  Created by 龚浩天 on 22/4/26.
+//  Created by Haotian Gong on 22/4/26.
 //
 
 import Foundation
@@ -71,19 +71,6 @@ enum SWiGLUTest {
         print(maxDiff < 1e-4 ? "✅ PASS" : "❌ FAIL")
     }
 
-    /// CPU 参考实现
-    ///
-    /// 存储约定（全部行优先 row-major）：
-    ///   x:     [seqLen, dModel]  → x[i, k]     存在     x[i * dModel + k]
-    ///   wGate: [dFF,    dModel]  → wGate[f, k] 存在     wGate[f * dModel + k]
-    ///   wUp:   [dFF,    dModel]  → wUp[f, k]   存在     wUp[f * dModel + k]
-    ///   wDown: [dModel, dFF]     → wDown[j, f] 存在     wDown[j * dFF + f]
-    ///
-    /// 计算（对每个 token i）：
-    ///   gate[f]   = Σ_k wGate[f, k] * x[i, k]             ← x @ wGate.T
-    ///   up[f]     = Σ_k wUp[f, k]   * x[i, k]             ← x @ wUp.T
-    ///   hidden[f] = silu(gate[f]) * up[f]                  ← 逐元素
-    ///   out[i, j] = Σ_f wDown[j, f] * hidden[f]            ← hidden @ wDown.T
     static func cpuSWiGLU(
         x: [Float],
         wGate: [Float],
