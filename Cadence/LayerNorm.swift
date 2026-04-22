@@ -18,10 +18,8 @@ enum LayerNorm {
         beta: MPSGraphTensor,
         eps: Double = 1e-6
     ) -> MPSGraphTensor {
-        let len: Int = x.shape!.count - 1
-        let lastAxis = NSNumber(value: len)
-        let shapeNumber = NSNumber(nonretainedObject: x.shape![len])
-        let epsTensor = graph.constant(eps, shape: [shapeNumber], dataType: MPSDataType.float32)
+        let lastAxis = NSNumber(value: x.shape!.count - 1)
+        let epsTensor = graph.constant(eps, dataType: .float32)
 
         let mean = graph.mean(of: x, axes: [lastAxis], name: "x_mean")
         let variance = graph.mean(
