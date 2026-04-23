@@ -204,6 +204,135 @@ enum AttentionTest {
         return out
     }
 
+    /// ══════════════════════════════════════════════════════════════
+    /// Stage C: GQA (Grouped Query Attention)
+    /// ══════════════════════════════════════════════════════════════
+    static func runGQA() {
+        let nHeads = 4
+        let nKvHeads = 2
+        let seqLen = 3
+        let headDim = 4
+        let nRep = nHeads / nKvHeads // = 2
+        let graph = MPSGraph()
+
+        // Q: [nHeads,    seqLen, headDim] = [4, 3, 4] = 48 elements
+        // K: [nKvHeads,  seqLen, headDim] = [2, 3, 4] = 24 elements
+        // V: [nKvHeads,  seqLen, headDim] = [2, 3, 4] = 24 elements
+        let qData: [Float] = (0 ..< nHeads * seqLen * headDim)
+            .map { Float($0) / Float(nHeads * seqLen * headDim) }
+        let kData: [Float] = (0 ..< nKvHeads * seqLen * headDim)
+            .map { Float(($0 * 3) % 31) / 31.0 }
+        let vData: [Float] = (0 ..< nKvHeads * seqLen * headDim)
+            .map { Float(($0 * 7) % 29) / 29.0 }
+
+        let qPh = graph.placeholder(
+            shape: [NSNumber(value: nHeads), NSNumber(value: seqLen), NSNumber(value: headDim)],
+            dataType: .float32,
+            name: "qPh"
+        )
+        let kPh = graph.placeholder(
+            shape: [NSNumber(value: nKvHeads), NSNumber(value: seqLen), NSNumber(value: headDim)],
+            dataType: .float32,
+            name: "kPh"
+        )
+        let vPh = graph.placeholder(
+            shape: [NSNumber(value: nKvHeads), NSNumber(value: seqLen), NSNumber(value: headDim)],
+            dataType: .float32,
+            name: "vPh"
+        )
+        let maskPh = graph.placeholder(
+            shape: [NSNumber(value: seqLen), NSNumber(value: seqLen)],
+            dataType: .float32,
+            name: "maskPh"
+        )
+
+        let qTensorData = TensorUtils.data(from: qData, shape: [nHeads, seqLen, headDim])
+        let kTensorData = TensorUtils.data(from: kData, shape: [nKvHeads, seqLen, headDim])
+        let vTensorData = TensorUtils.data(from: vData, shape: [nKvHeads, seqLen, headDim])
+        let maskTensorData = createMask(seqLen: seqLen)
+
+        let output = Attention.applyGQA(
+            graph: graph,
+            Q: qPh,
+            K: kPh,
+            V: vPh,
+            mask: maskPh,
+            nHeads: nHeads,
+            nKvHeads: nKvHeads,
+            seqLen: seqLen,
+            headDim: headDim
+        )
+
+        let result = graph.run(
+            with: Device.shared.commandQueue,
+            feeds: [qPh: qTensorData, kPh: kTensorData, vPh: vTensorData, maskPh: maskTensorData],
+            targetTensors: [output],
+            targetOperations: nil
+        )
+
+        let gpuResult = TensorUtils.readFloats(
+            from: result[output]!,
+            count: nHeads * seqLen * headDim
+        )
+
+        // CPU 参考：先手动把 K/V 按「分组连续」规则扩展到 nHeads 份，
+        //          再复用已有的 cpuMultiHeadAttention
+        let kExpanded = repeatKVContiguous(
+            x: kData, nKvHeads: nKvHeads, seqLen: seqLen, headDim: headDim, nRep: nRep
+        )
+        let vExpanded = repeatKVContiguous(
+            x: vData, nKvHeads: nKvHeads, seqLen: seqLen, headDim: headDim, nRep: nRep
+        )
+        let cpuResult = cpuMultiHeadAttention(
+            Q: qData, K: kExpanded, V: vExpanded,
+            nHeads: nHeads, seqLen: seqLen, headDim: headDim
+        )
+
+        // 打印几个位置
+        print("─── GQA 验证 (nHeads=\(nHeads), nKvHeads=\(nKvHeads)) ───")
+        print("GPU output (head 0, row 0):", Array(gpuResult[0 ..< headDim]))
+        print("CPU output (head 0, row 0):", Array(cpuResult[0 ..< headDim]))
+
+        // head 1 应该和 head 0 用相同的 KV（因为 0/2 == 1/2 == KV head 0）
+        let h1Start = 1 * seqLen * headDim
+        print("GPU output (head 1, row 0):", Array(gpuResult[h1Start ..< h1Start + headDim]))
+        print("CPU output (head 1, row 0):", Array(cpuResult[h1Start ..< h1Start + headDim]))
+
+        // head 2 开始换 KV head 1
+        let h2Start = 2 * seqLen * headDim + 2 * headDim // head 2, row 2
+        print("GPU output (head 2, row 2):", Array(gpuResult[h2Start ..< h2Start + headDim]))
+        print("CPU output (head 2, row 2):", Array(cpuResult[h2Start ..< h2Start + headDim]))
+
+        let maxDiff = zip(gpuResult, cpuResult).map { abs($0 - $1) }.max() ?? 0
+        print("Max diff: \(maxDiff)")
+        print(maxDiff < 1e-4 ? "✅ PASS" : "❌ FAIL")
+    }
+
+    /// 按「分组连续」规则把 KV 从 [nKvHeads, seq, d] 扩展到 [nKvHeads*nRep, seq, d]
+    /// 即 [A, B] 变成 [A, A, B, B]（nRep=2 时），而不是 [A, B, A, B]
+    static func repeatKVContiguous(
+        x: [Float],
+        nKvHeads: Int,
+        seqLen: Int,
+        headDim: Int,
+        nRep: Int
+    ) -> [Float] {
+        let headStride = seqLen * headDim
+        let nHeads = nKvHeads * nRep
+        var out = [Float](repeating: 0, count: nHeads * headStride)
+
+        for h in 0 ..< nHeads {
+            let kvHead = h / nRep // 分组连续：head 0,1 → kv 0；head 2,3 → kv 1
+            let srcStart = kvHead * headStride
+            let dstStart = h * headStride
+            for k in 0 ..< headStride {
+                out[dstStart + k] = x[srcStart + k]
+            }
+        }
+
+        return out
+    }
+
     static func cpuAttention(
         Q: [Float],
         K: [Float],

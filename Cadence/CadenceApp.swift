@@ -17,7 +17,7 @@ struct CadenceApp: App {
 //        LayerNormTest.run()
 //        SWiGLUTest.run()
 //        AttentionPerfTest.run()
-        AttentionTest.runMulti()
+        AttentionTest.runGQA()
 //        print("")
 //        RoPETest().run()
     }
