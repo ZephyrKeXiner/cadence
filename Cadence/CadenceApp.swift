@@ -16,7 +16,7 @@ struct CadenceApp: App {
 //        RoPEPropertyTest().run()
 //        LayerNormTest.run()
 //        SWiGLUTest.run()
-        AttentionTest.run()
+        AttentionPerfTest.run()
 //        print("")
 //        RoPETest().run()
     }

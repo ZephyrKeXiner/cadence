@@ -6,8 +6,6 @@
 //
 
 import Foundation
-import Metal
-import MetalPerformanceShaders
 import MetalPerformanceShadersGraph
 
 enum LayerNorm {
