@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct CadenceApp: App {
     init() {
-        ByteShadowMapTest.run()
+        VocabTest.run()
     }
 
     var body: some Scene {
