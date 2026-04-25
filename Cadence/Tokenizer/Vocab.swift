@@ -44,25 +44,30 @@ final class Vocab {
         var chars = word.map { String($0) }
 
         while chars.count >= 2 {
-            let candidates: [(index: Int, rank: Int)] = (0 ..< (chars.count - 1)).compactMap { i -> (
-                index: Int,
-                rank: Int
-            )? in
+            var bestPair: Pair?
+            var bestRank = Int.max
+            for i in 0 ..< chars.count - 1 {
                 let pair = Pair(first: chars[i], second: chars[i + 1])
-
-                guard let rank = bpeRanks[pair] else {
-                    return nil
+                if let rank = bpeRanks[pair], rank < bestRank {
+                    bestRank = rank
+                    bestPair = pair
                 }
-
-                return (index: i, rank: rank)
             }
+            guard let best = bestPair else { break }
 
-            guard let best = candidates.min(by: { $0.rank < $1.rank }) else {
-                break
+            var next: [String] = []
+            next.reserveCapacity(chars.count)
+            var i = 0
+            while i < chars.count {
+                if i + 1 < chars.count, chars[i] == best.first, chars[i + 1] == best.second {
+                    next.append(chars[i] + chars[i + 1])
+                    i += 2
+                } else {
+                    next.append(chars[i])
+                    i += 1
+                }
             }
-
-            chars[best.index] += chars[best.index + 1]
-            chars.remove(at: best.index + 1)
+            chars = next
         }
 
         return chars
