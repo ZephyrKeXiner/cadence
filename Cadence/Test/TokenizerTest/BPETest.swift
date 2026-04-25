@@ -11,7 +11,7 @@ import Foundation
 
 enum BPETest {
     static func run() {
-        let basePath = "/Users/sakruhnab1/Documents/Cadence/Models/Qwen3-4B"
+        let basePath = "/Users/sakruhnab1/Documents/Cadence/Models/Qwen3.5-4B"
 
         let vocab: Vocab
         do {
@@ -26,9 +26,9 @@ enum BPETest {
 
         print("─── BPE 自测 ───")
 
-        // 用一个闭包统一打印 + 验证
-        // 验证规则：每个返回的 sub-token 都应该在 vocab 里能查到
-        // （如果查不到，说明 bpe 算法把序列切到了 vocab 不认识的形态，肯定 bug）
+        /// 用一个闭包统一打印 + 验证
+        /// 验证规则：每个返回的 sub-token 都应该在 vocab 里能查到
+        /// （如果查不到，说明 bpe 算法把序列切到了 vocab 不认识的形态，肯定 bug）
         func test(_ word: String, label: String = "") {
             let tokens = vocab.bpe(word)
             let ids = tokens.map { vocab.tokenToId[$0] }
