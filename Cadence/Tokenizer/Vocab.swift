@@ -40,6 +40,51 @@ final class Vocab {
         })
     }
 
+    /// 文本 → token id 列表
+    /// pipeline: pre-tokenize → byte-shadow → bpe → vocab lookup
+    func encode(_ text: String) -> [Int] {
+        let chunks = preTokenize(text)
+        var ids: [Int] = []
+        for chunk in chunks {
+            let shadow = ByteShadowMap.encode(chunk)
+            let subTokens = bpe(shadow)
+            for tok in subTokens {
+                if let id = tokenToId[tok] {
+                    ids.append(id)
+                }
+                // 如果 token 不在 vocab：理论上不应该发生（base 256 byte 都在 vocab 里），
+                // 真出现就静默丢，先这样
+            }
+        }
+        return ids
+    }
+
+    /// token id 列表 → 文本
+    /// pipeline: id 反查 → concat → byte-shadow decode
+    func decode(_ ids: [Int]) -> String {
+        var shadow = ""
+        for id in ids {
+            if let tok = idToToken[id] {
+                shadow += tok
+            }
+        }
+        return ByteShadowMap.decode(shadow)
+    }
+
+    /// Qwen / cl100k 风格的 pre-tokenizer regex
+    /// 把整段文本切成「词 / 标点 / 数字 / 空白」chunk
+    private static let preTokenizeRegex: NSRegularExpression = {
+        let pattern = #"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"#
+        return try! NSRegularExpression(pattern: pattern, options: [])
+    }()
+
+    private func preTokenize(_ text: String) -> [String] {
+        let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
+        let matches = Self.preTokenizeRegex.matches(in: text, options: [], range: fullRange)
+        return matches.map { nsText.substring(with: $0.range) }
+    }
+
     func bpe(_ word: String) -> [String] {
         var chars = word.map { String($0) }
 

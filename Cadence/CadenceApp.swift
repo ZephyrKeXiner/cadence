@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct CadenceApp: App {
     init() {
-        BPETest.run()
+        TokenizerTest.run()
     }
 
     var body: some Scene {
