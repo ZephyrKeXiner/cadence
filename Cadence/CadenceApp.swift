@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct CadenceApp: App {
     init() {
-        PreTokenizeDebugTest.run()
+        SpecialTokenTest.run()
     }
 
     var body: some Scene {
