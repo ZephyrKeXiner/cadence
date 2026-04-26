@@ -51,9 +51,9 @@ final class Vocab {
             for tok in subTokens {
                 if let id = tokenToId[tok] {
                     ids.append(id)
+                } else {
+                    fatalError("Can't convert token '\(tok)' (from chunk '\(chunk)') to id")
                 }
-                // 如果 token 不在 vocab：理论上不应该发生（base 256 byte 都在 vocab 里），
-                // 真出现就静默丢，先这样
             }
         }
         return ids
