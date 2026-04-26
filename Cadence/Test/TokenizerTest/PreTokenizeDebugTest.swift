@@ -18,7 +18,8 @@ enum PreTokenizeDebugTest {
         do {
             vocab = try Vocab(
                 vocabPath: basePath + "/vocab.json",
-                mergesPath: basePath + "/merges.txt"
+                mergesPath: basePath + "/merges.txt",
+                specialTokens: Vocab.qwenSpecialTokens
             )
         } catch {
             print("❌ Vocab 加载失败：\(error)")
@@ -42,26 +43,29 @@ enum PreTokenizeDebugTest {
             (" go", "letters"),
         ])
 
-        // ─── case 3：数字按 1-3 位切 ───
+        // ─── case 3：Qwen tokenizer.json 中数字逐个切 ───
         printCase(vocab, "1234567890", expected: [
-            ("123", "digits"),
-            ("456", "digits"),
-            ("789", "digits"),
+            ("1", "digits"),
+            ("2", "digits"),
+            ("3", "digits"),
+            ("4", "digits"),
+            ("5", "digits"),
+            ("6", "digits"),
+            ("7", "digits"),
+            ("8", "digits"),
+            ("9", "digits"),
             ("0", "digits"),
         ])
 
-        // ─── case 4：换行 + 缩进 ───
         printCase(vocab, "def foo():\n    return 1", expected: [
             ("def", "letters"),
             (" foo", "letters"),
-            ("():", "punct"),
-            ("\n", "newline"),
-            ("    ", "trail_ws"), // 注意：4 个空格在「return」前面，可能是 letters 吃掉
-            ("return", "letters"),
-            (" ", "trail_ws"),
+            ("():\n", "punct"), // 换行被 punct 吞
+            ("   ", "trail_ws"), // 3 个空格（不是 4）
+            (" return", "letters"), // 1 空格 + return
+            (" ", "whitespace"), // 孤立空格（不是 trail_ws，因后面是数字非空白）
             ("1", "digits"),
         ])
-        // 注意：上面的 expected 不一定完全对，主要看你输出和直觉差多少 ↑
 
         // ─── case 5：中文 ───
         printCase(vocab, "你好 world", expected: nil)

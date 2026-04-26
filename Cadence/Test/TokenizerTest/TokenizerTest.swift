@@ -15,7 +15,8 @@ enum TokenizerTest {
         do {
             vocab = try Vocab(
                 vocabPath: basePath + "/vocab.json",
-                mergesPath: basePath + "/merges.txt"
+                mergesPath: basePath + "/merges.txt",
+                specialTokens: Vocab.qwenSpecialTokens
             )
         } catch {
             print("❌ Vocab 加载失败：\(error)")

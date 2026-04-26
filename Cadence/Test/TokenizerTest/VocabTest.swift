@@ -11,7 +11,8 @@ enum VocabTest {
     static func run() {
         guard let vocab = try? Vocab(
             vocabPath: "/Users/sakruhnab1/Documents/Cadence/Models/Qwen3.5-4B/vocab.json",
-            mergesPath: "/Users/sakruhnab1/Documents/Cadence/Models/Qwen3.5-4B/merges.txt"
+            mergesPath: "/Users/sakruhnab1/Documents/Cadence/Models/Qwen3.5-4B/merges.txt",
+            specialTokens: Vocab.qwenSpecialTokens
         ) else {
             fatalError("Failed to read files")
         }
