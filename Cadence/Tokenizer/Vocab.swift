@@ -85,6 +85,43 @@ final class Vocab {
         return matches.map { nsText.substring(with: $0.range) }
     }
 
+    func preTokenDebug(_ text: String) -> [(String, String)] {
+        let nsText = text as NSString
+        var pos = 0
+        var matched = false
+        var result: [(String, String)] = []
+        while pos < nsText.length {
+            for (name, pattern) in preTokenizePatterns {
+                let searchRange = NSRange(location: pos, length: nsText.length - pos)
+                if let match = pattern.firstMatch(in: text, range: searchRange),
+                   match.range.location == pos
+                {
+                    matched = true
+                    if let range = Range(match.range, in: text) {
+                        let chunk = String(text[range])
+                        result.append((chunk, name))
+                    }
+                    pos += match.range.length
+                    break
+                }
+            }
+            if !matched {
+                fatalError("No pattern matched at pos=\(pos), text='\(nsText.substring(from: pos))'")
+            }
+        }
+        return result
+    }
+
+    private let preTokenizePatterns: [(name: String, pattern: NSRegularExpression)] = [
+        ("contraction", try! NSRegularExpression(pattern: #"(?i:'s|'t|'re|'ve|'m|'ll|'d)"#)),
+        ("letters", try! NSRegularExpression(pattern: #"[^\r\n\p{L}\p{N}]?\p{L}+"#)),
+        ("digits", try! NSRegularExpression(pattern: #"\p{N}{1,3}"#)),
+        ("punct", try! NSRegularExpression(pattern: #" ?[^\s\p{L}\p{N}]+[\r\n]*"#)),
+        ("newline", try! NSRegularExpression(pattern: #"\s*[\r\n]+"#)),
+        ("trail_ws", try! NSRegularExpression(pattern: #"\s+(?!\S)"#)),
+        ("whitespace", try! NSRegularExpression(pattern: #"\s+"#)),
+    ]
+
     func bpe(_ word: String) -> [String] {
         var chars = word.map { String($0) }
 
