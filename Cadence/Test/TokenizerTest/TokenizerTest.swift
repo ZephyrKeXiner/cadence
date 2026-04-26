@@ -10,12 +10,11 @@ import Foundation
 
 enum TokenizerTest {
     static func run() {
-        let basePath = "/Users/sakruhnab1/Documents/Cadence/Models/Qwen3.5-4B"
         let vocab: Vocab
         do {
             vocab = try Vocab(
-                vocabPath: basePath + "/vocab.json",
-                mergesPath: basePath + "/merges.txt",
+                vocabPath: TestPaths.vocabPath,
+                mergesPath: TestPaths.mergesPath,
                 specialTokens: Vocab.qwenSpecialTokens
             )
         } catch {

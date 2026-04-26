@@ -51,19 +51,17 @@ final class Vocab {
         // ── merges.txt ──
         let mergesString = try String(contentsOfFile: mergesPath, encoding: .utf8)
         let lines = mergesString.split(separator: "\n").map(String.init)
-        bpeRanks = Dictionary(uniqueKeysWithValues: lines.enumerated().compactMap { index, line -> (
-            Pair,
-            Int
-        )? in
+        var ranks: [Pair: Int] = [:]
+        var rank = 0
+        for line in lines {
+            if line.isEmpty { continue }
+            if line.hasPrefix("#") { continue }
             let parts = line.split(separator: " ").map(String.init)
-            guard parts.count == 2 else {
-                return nil
-            }
-
-            let pair = Pair(first: parts[0], second: parts[1])
-
-            return (pair, index)
-        })
+            guard parts.count == 2 else { continue }
+            ranks[Pair(first: parts[0], second: parts[1])] = rank
+            rank += 1
+        }
+        bpeRanks = ranks
 
         // ── 预编译 special token regex（按长度降序避免短的吞长的）──
         self.specialTokens = specialTokens
