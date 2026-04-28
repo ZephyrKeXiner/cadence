@@ -65,7 +65,6 @@ final class SafeTensors {
 
         switch info.dtype {
         case "F32":
-            // fp32 原生存储，直接 reinterpret bytes → [Float]
             return bytes.withUnsafeBytes { buf in
                 Array(buf.bindMemory(to: Float.self))
             }

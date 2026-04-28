@@ -47,13 +47,18 @@ enum SafeTensorsRealTest {
         // ─── 3. 关键 tensor shape 验证 ───
         // Qwen3-4B config: d_model=2560, n_heads=32, n_kv_heads=8, head_dim=128, intermediate=9728,
         // vocab=151936
-        // 注意：HF 卷积约定是 [out, in]
+        // ⚠️ 注意：Qwen3-4B 解耦了 head_dim 和 hidden_size：
+        //         n_heads × head_dim = 32 × 128 = 4096 ≠ hidden_size (2560)
+        //         所以 q_proj 是 [4096, 2560]（扩张），o_proj 是 [2560, 4096]（收回）
         let expectations: [(String, [Int])] = [
             ("model.embed_tokens.weight", [151_936, 2560]),
             ("model.layers.0.input_layernorm.weight", [2560]),
-            ("model.layers.0.self_attn.q_proj.weight", [2560, 2560]), // n_heads*head_dim, d_model
+            ("model.layers.0.self_attn.q_proj.weight", [4096, 2560]), // n_heads*head_dim, d_model
             ("model.layers.0.self_attn.k_proj.weight", [1024, 2560]), // n_kv*head_dim, d_model
             ("model.layers.0.self_attn.v_proj.weight", [1024, 2560]),
+            ("model.layers.0.self_attn.o_proj.weight", [2560, 4096]), // d_model, n_heads*head_dim
+            ("model.layers.0.self_attn.q_norm.weight", [128]), // ⭐ Qwen3 独有
+            ("model.layers.0.self_attn.k_norm.weight", [128]), // ⭐ Qwen3 独有
             ("model.layers.0.mlp.gate_proj.weight", [9728, 2560]),
             ("model.layers.0.mlp.up_proj.weight", [9728, 2560]),
             ("model.layers.0.mlp.down_proj.weight", [2560, 9728]),
@@ -82,9 +87,9 @@ enum SafeTensorsRealTest {
             let minV = gamma.min() ?? 0
             let maxV = gamma.max() ?? 0
             print("  mean=\(mean)  min=\(minV)  max=\(maxV)")
-            // 训练好的 RMSNorm γ 一般在 [0.5, 2.0] 范围内
-            let allReasonable = gamma.allSatisfy { $0 > 0 && $0 < 10 }
-            print("  数值是否合理（>0 且 <10）: \(allReasonable ? "✓" : "❌")")
+            // RMSNorm γ 在 Qwen3 里可能是小数值且含负数，只检查没爆炸
+            let allFinite = gamma.allSatisfy { $0.isFinite && abs($0) < 100 }
+            print("  数值有限且不爆炸（|γ| < 100）: \(allFinite ? "✓" : "❌")")
         }
 
         // ─── 5. 加载一个 weight matrix 头几个数看 BF16 解码 ───
