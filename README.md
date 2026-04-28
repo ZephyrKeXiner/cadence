@@ -1,154 +1,85 @@
 # Cadence
 
-Cadence is a local LLM inference experiment built with Swift, SwiftUI, and Metal Performance Shaders Graph (MPSGraph).
+Cadence is an experimental local LLM runtime for macOS, built in Swift on top of Metal Performance Shaders Graph (MPSGraph).
 
-At its current stage, the repository is focused on building and validating the low-level pieces of a Transformer inference stack rather than shipping a finished chat application. The main pattern in the codebase is: implement a GPU operator with MPSGraph, then compare it against a CPU reference implementation.
+The project is focused on building the core pieces of a Transformer stack as small, testable components: weight loading, tokenization, and GPU operators. The current workflow is intentionally low-level: implement a component, validate it in isolation, then compose upward.
+
+## Highlights
+
+- Transformer operators in MPSGraph
+  - scaled dot-product attention
+  - multi-head attention
+  - grouped-query attention (GQA)
+  - RoPE
+  - RMSNorm and LayerNorm
+  - SWiGLU
+- Tokenization pipeline
+  - byte-level reversible shadow mapping
+  - vocab and merges loading
+  - GPT/Qwen-style BPE
+  - special token handling
+  - encode / decode round-trip support
+- SafeTensors support
+  - header parsing
+  - `F32` and `BF16` decoding to `Float32`
+  - shard routing through `model.safetensors.index.json`
+- Validation runners
+  - CPU vs GPU operator checks
+  - tokenizer correctness checks
+  - real-model safetensors smoke tests
 
 ## Status
 
-Cadence is still in an early R&D phase. It already contains a set of core operators and some tokenizer groundwork, but it does not yet provide end-to-end model loading, decoding, or a usable chat experience.
+Cadence is still an early prototype. It can validate important parts of a Qwen-style inference stack, but it does not yet run full end-to-end generation.
 
-Right now, the repository is best understood as:
+Current gaps:
 
-- a Metal / MPSGraph operator playground
-- a validation project that compares CPU and GPU outputs
-- a skeleton for a future local inference engine
-
-It is not yet:
-
-- a production-ready chat app
-- a complete Qwen inference runtime
-- a mature project with a dedicated XCTest target
-
-## What Is Implemented
-
-### 1. Runtime and utilities
-
-- `Cadence/Utils/Device.swift`
-  - Centralized setup for `MTLDevice`, `MTLCommandQueue`, and `MPSGraphDevice`
-- `Cadence/Utils/TensorUtils.swift`
-  - Converts between `[Float]` and `MPSGraphTensorData`
-  - Provides helpers such as `floatPlaceholder`, `floatConstant`, and `floatScalar`
-
-### 2. Core Transformer operators
-
-The following operators are already implemented:
-
-- `Attention.apply`
-  - Single-head scaled dot-product attention
-- `Attention.applyMultiHead`
-  - Multi-head attention
-  - Supports causal masking
-- `Attention.applyGQA`
-  - Grouped Query Attention
-  - Expands KV heads by group and reuses the multi-head attention path
-- `RoPE.precomputeCosSin` / `RoPE.apply`
-  - Rotary Position Embedding table precomputation and application
-- `RMSNorm.apply`
-  - RMSNorm implementation
-  - Also exposes intermediate values `meanSquared` and `invRms`
-- `LayerNorm.apply`
-  - Standard LayerNorm
-- `SWiGLU.apply`
-  - SWiGLU feed-forward block commonly used in modern Transformers
-
-### 3. Tokenizer groundwork
-
-- `Cadence/Tokenizer/ByteShadowMap.swift`
-  - Implements byte-level shadow character mapping
-  - Encodes arbitrary UTF-8 byte sequences into a reversible character sequence
-  - Supports both `encode` and `decode`
-
-This is useful as a low-level building block before wiring in full BPE / tokenizer logic.
-
-### 4. CPU vs GPU validation
-
-The current validation approach is not XCTest-based. Instead, the test runners are compiled into the app target and manually called from `CadenceApp.init()`.
-
-Available runners:
-
-| Runner | Purpose |
-| --- | --- |
-| `MatmulTest.run()` | Verifies MPSGraph matrix multiplication against a CPU implementation |
-| `RMSNormTest().run()` | Verifies RMSNorm |
-| `RoPETest().run()` | Verifies RoPE numerically |
-| `RoPEPropertyTest().run()` | Verifies that RoPE preserves vector length |
-| `LayerNormTest.run()` | Verifies LayerNorm |
-| `SWiGLUTest.run()` | Verifies SWiGLU |
-| `AttentionTest.run()` | Verifies single-head attention |
-| `AttentionTest.runMulti()` | Verifies multi-head attention |
-| `AttentionTest.runGQA()` | Verifies GQA |
-| `AttentionPerfTest.run()` | Rough CPU vs GPU attention performance comparison |
-| `ByteShadowMapTest.run()` | Verifies byte-shadow mapping and round-trip encoding |
+- no full Transformer forward pass
+- no KV cache
+- no logits sampling or decoding loop
+- no production UI
+- no dedicated XCTest target yet
 
 ## Repository Layout
 
 ```text
 .
 ├── Cadence
+│   ├── Loader        # safetensors parsing and shard routing
+│   ├── Operator      # MPSGraph operators
+│   ├── Tokenizer     # byte mapping and BPE vocab logic
+│   ├── Test          # manual validation runners
+│   ├── Utils         # device and tensor helpers
 │   ├── CadenceApp.swift
-│   ├── ContentView.swift
-│   ├── Operator
-│   │   ├── Attention.swift
-│   │   ├── LayerNorm.swift
-│   │   ├── RMSNorm.swift
-│   │   ├── RoPE.swift
-│   │   └── SWiGLU.swift
-│   ├── Tokenizer
-│   │   └── ByteShadowMap.swift
-│   ├── Utils
-│   │   ├── Device.swift
-│   │   └── TensorUtils.swift
-│   ├── Test
-│   │   ├── OperatorTest
-│   │   └── TokenizerTest
-│   └── Assets.xcassets
+│   └── ContentView.swift
 ├── Cadence.xcodeproj
-├── Models
-│   └── Qwen3.5-4B
+├── .swiftformat
 └── LICENSE
 ```
 
 ## Requirements
 
-Recommended environment:
-
 - macOS
-- a Mac with Metal support
+- a Metal-capable Mac
 - Xcode 26.1.1 or a compatible version
 - Swift 5
 - `swiftformat`
 
-Notes:
-
-- The project is currently configured with `MACOSX_DEPLOYMENT_TARGET = 26.1`
-- The project includes a build phase that runs:
-  - `/opt/homebrew/bin/swiftformat "$SRCROOT" --swiftversion 5.0`
-- If `swiftformat` is not installed, install it with:
+The project currently runs `swiftformat` from an Xcode build phase:
 
 ```bash
 brew install swiftformat
 ```
 
-If you do not want automatic formatting during builds, you can remove or disable that Run Script Build Phase in Xcode.
+## Build
 
-## Getting Started
-
-### Open in Xcode
+Open the project in Xcode:
 
 ```bash
 open Cadence.xcodeproj
 ```
 
-Then:
-
-1. Select the `Cadence` scheme
-2. Select `My Mac` as the run destination
-3. Run the app
-
-### Build from the command line
-
-If your machine does not have a `Mac Development` signing certificate configured, you can disable signing for local builds:
+Or build from the command line:
 
 ```bash
 xcodebuild \
@@ -161,113 +92,59 @@ xcodebuild \
   build
 ```
 
-This command has already been verified successfully in this repository.
+If you build locally without a configured `Mac Development` signing certificate, keep the signing flags above.
 
-## How To Run The Existing Tests
+## Local Model Assets
 
-The current entry point for manual test execution is `Cadence/CadenceApp.swift` inside `init()`.
+Model assets are intentionally not tracked in git. The `Models/` directory is ignored.
 
-At the moment, the default runner is:
+To run the tokenizer and safetensors tests against a real model, place your local files under a model directory and update [Cadence/Test/TestPaths.swift](/Users/sakruhnab1/Documents/Cadence/Cadence/Test/TestPaths.swift).
 
-```swift
-ByteShadowMapTest.run()
-```
+The current test helpers expect files such as:
 
-To run a different test, edit `CadenceApp.init()`. For example:
-
-```swift
-init() {
-    MatmulTest.run()
-//    RMSNormTest().run()
-//    RoPEPropertyTest().run()
-//    LayerNormTest.run()
-//    SWiGLUTest.run()
-//    AttentionPerfTest.run()
-//    AttentionTest.runGQA()
-//    RoPETest().run()
-//    ByteShadowMapTest.run()
-}
-```
-
-The results will appear in:
-
-- the Xcode debug console
-- or the app's standard output logs at launch
-
-## Model Assets
-
-The repository includes a model asset directory:
-
-```text
-Models/Qwen3.5-4B/
-```
-
-The directory currently contains:
-
-- `tokenizer.json`
-- `tokenizer_config.json`
 - `vocab.json`
 - `merges.txt`
-- `model.safetensors-00002-of-00002.safetensors`
+- `model.safetensors.index.json`
+- one or more `.safetensors` shards
 
-Important caveats:
+## Running Validation Runners
 
-- These assets are not yet loaded or used by the Swift code
-- The repository currently only contains the `00002-of-00002` safetensors shard
-- Based on the filename, the full model weights are likely missing the first shard
+Manual validation is wired through [Cadence/CadenceApp.swift](/Users/sakruhnab1/Documents/Cadence/Cadence/CadenceApp.swift). The current default runner is:
 
-So while the repository is clearly preparing for Qwen3.5-4B support, the full path for:
-
-- weight loading
-- tokenizer parsing
-- embedding / block assembly
-- KV cache
-- sampling / generation
-
-has not been wired up yet.
-
-## Current Limitations
-
-As of now, Cadence still has several obvious gaps:
-
-- `ContentView.swift` is still the default template UI with `Hello, world!`
-- there is no complete safetensors reader
-- tokenizer files are not yet parsed into a usable tokenizer
-- there is no end-to-end Transformer block forward pass
-- there is no logits sampling or text generation
-- the tests have not been moved into a dedicated XCTest target
-
-Because of that, the repository currently works best as:
-
-- a low-level operator validation project
-- a local inference engine prototype
-- a Metal / MPSGraph learning and experimentation codebase
-
-## Suggested Next Steps
-
-If the goal is to turn this into a model that can run end to end, the most natural next steps are:
-
-1. Add safetensors weight loading
-2. Add tokenizer vocab and BPE merge parsing
-3. Compose Attention, RoPE, RMSNorm, and SWiGLU into a full Transformer block
-4. Add embeddings, LM head, and KV cache
-5. Wire prompt -> token IDs -> logits -> sampling -> text output
-6. Move the handwritten runners into XCTest and a proper benchmark setup
-
-## Code Style
-
-The repository currently uses `swiftformat`, configured in:
-
-```text
-.swiftformat
+```swift
+SafetensorsRouterTest.run()
 ```
 
-Current settings include:
+To run a different check, change the runner in `CadenceApp.init()`.
 
-- 4-space indentation
-- maximum line width of 110
-- consistent argument and parameter wrapping
-- Swift version 5.0
+Common runners:
+
+- Loader
+  - `SafeTensorsTest`
+  - `SafeTensorsRealTest`
+  - `SafetensorsRouterTest`
+- Tokenizer
+  - `ByteShadowMapTest`
+  - `BPETest`
+  - `SpecialTokenTest`
+  - `TokenizerTest`
+- Operators
+  - `MatmulTest`
+  - `RMSNormTest`
+  - `RoPETest`
+  - `RoPEPropertyTest`
+  - `LayerNormTest`
+  - `SWiGLUTest`
+  - `AttentionTest`
+  - `AttentionPerfTest`
+
+## Roadmap
+
+- compose the existing operators into full Transformer blocks
+- remove hardcoded local model paths from test configuration
+- add embeddings, KV cache, and a decoding loop
+- move runner-based checks into XCTest and benchmarks
+- replace the placeholder UI with a real inference interface
 
 ## License
 
