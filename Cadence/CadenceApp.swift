@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct CadenceApp: App {
     init() {
-        SafetensorsRouterTest.run()
+        Qwen3ConfigTest.run()
     }
 
     var body: some Scene {
