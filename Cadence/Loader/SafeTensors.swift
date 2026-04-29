@@ -81,13 +81,13 @@ final class SafeTensors {
             fatalError("Unsupported dtype '\(info.dtype)' for tensor '\(name)' (only F32/BF16 supported now)")
         }
     }
-    
+
     func loadAsGPU(_ name: String) -> MPSGraphTensorData {
         guard let info = tensors[name] else {
             fatalError("Tensor '\(name)' not found in safetensors file")
         }
         let bytes = data[info.absoluteRange]
-        
+
         switch info.dtype {
         case "F32":
             let buffer: MTLBuffer = bytes.withUnsafeBytes { rawBuffer in
@@ -97,12 +97,24 @@ final class SafeTensors {
                     options: .storageModeShared
                 )!
             }
-            return MPSGraphTensorData(buffer, shape: info.shape.map{NSNumber(value: $0)}, dataType: .float32)
+            return MPSGraphTensorData(
+                buffer,
+                shape: info.shape.map { NSNumber(value: $0) },
+                dataType: .float32
+            )
         case "BF16":
             let buffer: MTLBuffer = bytes.withUnsafeBytes { rawBuffer in
-                Device.shared.mtlDevice.makeBuffer(bytes: rawBuffer.baseAddress!, length: rawBuffer.count, options: .storageModeShared)!
+                Device.shared.mtlDevice.makeBuffer(
+                    bytes: rawBuffer.baseAddress!,
+                    length: rawBuffer.count,
+                    options: .storageModeShared
+                )!
             }
-            return MPSGraphTensorData(buffer, shape: info.shape.map{NSNumber(value: $0)}, dataType: .bFloat16)
+            return MPSGraphTensorData(
+                buffer,
+                shape: info.shape.map { NSNumber(value: $0) },
+                dataType: .bFloat16
+            )
         default:
             fatalError("Unsupported dtype '\(info.dtype)' for tensor '\(name)' (only F32/BF16 supported now)")
         }

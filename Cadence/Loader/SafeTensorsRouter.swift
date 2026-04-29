@@ -77,8 +77,8 @@ final class SafeTensorsRouter {
         }
         return safeTensor.loadAsFloat32(name)
     }
-    
-    func loadAsGPU(_ name:String) -> MPSGraphTensorData? {
+
+    func loadAsGPU(_ name: String) -> MPSGraphTensorData? {
         guard let safeTensor = try? routeToSafeTensors(name) else {
             return nil
         }

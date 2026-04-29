@@ -6,24 +6,25 @@
 //
 
 import Foundation
+import MetalPerformanceShadersGraph
 
 final class Qwen3DecoderLayer {
-    let inputLayernorm: [Float]
-    let postAttentionLayernorm: [Float]
-    let qProj: [Float]
-    let kProj: [Float]
-    let vProj: [Float]
-    let oProj: [Float]
-    let kNorm: [Float]
-    let qNorm: [Float]
-    let gateProj: [Float]
-    let upProj: [Float]
-    let downProj: [Float]
+    let inputLayernorm: MPSGraphTensorData
+    let postAttentionLayernorm: MPSGraphTensorData
+    let qProj: MPSGraphTensorData
+    let kProj: MPSGraphTensorData
+    let vProj: MPSGraphTensorData
+    let oProj: MPSGraphTensorData
+    let kNorm: MPSGraphTensorData
+    let qNorm: MPSGraphTensorData
+    let gateProj: MPSGraphTensorData
+    let upProj: MPSGraphTensorData
+    let downProj: MPSGraphTensorData
 
     init(layerIdx: Int, router: SafeTensorsRouter) {
-        func load(_ subname: String) -> [Float] {
+        func load(_ subname: String) -> MPSGraphTensorData {
             let fullName = "model.layers.\(layerIdx).\(subname)"
-            guard let arr = router.loadAsFloat32(fullName) else {
+            guard let arr = router.loadAsGPU(fullName) else {
                 fatalError("Missing weight: \(fullName)")
             }
             return arr
