@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import MetalPerformanceShadersGraph
 
 final class SafeTensorsRouter {
     enum RouterError: Error {
@@ -75,5 +76,12 @@ final class SafeTensorsRouter {
             return nil
         }
         return safeTensor.loadAsFloat32(name)
+    }
+    
+    func loadAsGPU(_ name:String) -> MPSGraphTensorData? {
+        guard let safeTensor = try? routeToSafeTensors(name) else {
+            return nil
+        }
+        return safeTensor.loadAsGPU(name)
     }
 }
