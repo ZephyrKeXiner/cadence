@@ -9,21 +9,26 @@ import Foundation
 
 enum DumpUtils {
     static let dumpDir = "/Users/sakruhnab1/Documents/Cadence/Models/dumps"
-    
-    static func loadDump(from name: String) throws -> [Float]{
+
+    static func loadDump(_ name: String) throws -> [Float] {
         let url = URL(filePath: dumpDir).appending(component: name, directoryHint: .notDirectory)
         let data = try Data(contentsOf: url)
-        let value = data.withUnsafeBytes { rawbuffer in
-            rawbuffer.load(as: [Float].self)
+        return data.withUnsafeBytes { rawbuffer in
+            Array(rawbuffer.bindMemory(to: Float.self))
         }
-        
-        return value
     }
-    
-    static func compareDump(_ output: [Float], _ dumpName: String) -> Float {
-        let dump = loadDump(from: dumpName)
-        let diffArray = output.map { x in
-            
+
+    static func compareDump(_ output: [Float], _ dumpName: String) throws -> Float {
+        let dump = try loadDump(dumpName)
+        guard output.count == dump.count else {
+            fatalError("size mismatch: output.count=\(output.count), dump.count=\(dump.count)")
         }
+        let diffs = zip(output, dump).map { x, y in
+            abs(x - y)
+        }
+        guard let maxDiff = diffs.max() else {
+            return 0
+        }
+        return maxDiff
     }
 }
