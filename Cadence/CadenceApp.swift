@@ -10,7 +10,7 @@ import SwiftUI
 @main
 struct CadenceApp: App {
     init() {
-        DumpUtilsTest.run()
+        Qwen3ForwardTest.run()
     }
 
     var body: some Scene {

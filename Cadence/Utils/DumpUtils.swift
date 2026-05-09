@@ -32,12 +32,16 @@ enum DumpUtils {
         }
         return maxDiff
     }
-    
+
     static func loadDumpAsGPU(_ name: String, shape: [Int]) throws -> MPSGraphTensorData {
         let url = URL(filePath: dumpDir).appending(component: name, directoryHint: .notDirectory)
         let data = try Data(contentsOf: url)
         let buffer: MTLBuffer = data.withUnsafeBytes { rawBuffer in
-            Device.shared.mtlDevice.makeBuffer(bytes: rawBuffer.baseAddress!, length: rawBuffer.count, options: .storageModeShared)!
+            Device.shared.mtlDevice.makeBuffer(
+                bytes: rawBuffer.baseAddress!,
+                length: rawBuffer.count,
+                options: .storageModeShared
+            )!
         }
         return MPSGraphTensorData(buffer, shape: shape.map { NSNumber(value: $0) }, dataType: .float32)
     }
