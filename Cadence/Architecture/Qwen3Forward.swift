@@ -15,7 +15,7 @@ class Qwen3Forward {
     init(model: Qwen3Model) {
         self.model = model
     }
-    
+
     func embedLookup(input: [Int32]) -> MPSGraphTensorData {
         let embed = graph.placeholder(
             shape: model.embedTokens.shape,

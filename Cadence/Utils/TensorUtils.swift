@@ -34,6 +34,16 @@ enum TensorUtils {
     static func nsShape(_ shape: [Int]) -> [NSNumber] {
         shape.map { NSNumber(value: $0) }
     }
+
+    static func readBFloats(from tensorData: MPSGraphTensorData, count: Int) -> [Float] {
+        var raw = [UInt16](repeating: 0, count: count)
+        raw.withUnsafeMutableBytes { ptr in
+            tensorData.mpsndarray().readBytes(ptr.baseAddress!, strideBytes: nil)
+        }
+        return raw.map { bits16 in
+            Float(bitPattern: UInt32(bits16) << 16)
+        }
+    }
 }
 
 extension MPSGraph {
